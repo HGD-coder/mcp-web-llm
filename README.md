@@ -4,13 +4,20 @@
 
 <a name="english"></a>
 
-A **Zero-Cost, Non-API** MCP Server that aggregates web versions of **ChatGPT**, **Claude**, and **Gemini**.
+A **Zero-Cost, Non-API** MCP Server that aggregates web versions of **ChatGPT**, **Claude**, **Gemini**, **DeepSeek**, **Grok**, and **Qwen**.
 
 Query multiple top-tier models in parallel directly from your AI IDE (Trae, Cursor, etc.) using your local browser sessions. **No API keys or tokens required.**
 
 ## Features
 
-- **Multi-Model Aggregation**: The `ask_all` tool queries ChatGPT, Claude, and Gemini simultaneously and returns a consolidated JSON response.
+- **Multi-Model Aggregation**: The `ask_all` tool queries all supported models simultaneously and returns a consolidated JSON response.
+- **Supported Models**: 
+  - ChatGPT (chatgpt.com)
+  - Claude (claude.ai)
+  - Gemini (gemini.google.com)
+  - DeepSeek (chat.deepseek.com)
+  - Grok (grok.com)
+  - Qwen (chat.qwen.ai)
 - **No API Tokens**: Leverages the free web interfaces of these models.
 - **Browser Automation**: Uses Playwright and CDP to connect to your existing Chrome instance, reusing your login state.
 - **Cost Saving**: Perfect for developers who want high-quality model outputs without the API costs.
@@ -45,6 +52,9 @@ Run in PowerShell (change path if needed):
    - ChatGPT: [https://chatgpt.com](https://chatgpt.com)
    - Claude: [https://claude.ai](https://claude.ai)
    - Gemini: [https://gemini.google.com](https://gemini.google.com)
+   - DeepSeek: [https://chat.deepseek.com](https://chat.deepseek.com)
+   - Grok: [https://grok.com](https://grok.com)
+   - Qwen: [https://chat.qwen.ai](https://chat.qwen.ai)
 3. **Do not close this window!** Keep it running in the background.
 
 ### 3. Configure IDE (Trae/Cursor)
@@ -78,13 +88,20 @@ In your IDE chat, use natural language:
 
 # MCP Web LLM 聚合器 (中文版)
 
-一个 **零成本、非 API** 的 MCP 服务器，聚合了 **ChatGPT**、**Claude** 和 **Gemini** 的网页版。
+一个 **零成本、非 API** 的 MCP 服务器，聚合了 **ChatGPT**、**Claude**、**Gemini**、**DeepSeek**、**Grok** 和 **Qwen** 的网页版。
 
 在您的 AI IDE（如 Trae、Cursor）中，直接利用本地浏览器会话，并行查询多个顶级模型。**无需 API Key，无需 Token。**
 
 ## 核心功能
 
-- **多模型聚合**：`ask_all` 工具同时询问 ChatGPT、Claude 和 Gemini，并返回汇总的 JSON 结果。
+- **多模型聚合**：`ask_all` 工具同时询问所有支持的模型，并返回汇总的 JSON 结果。
+- **支持的模型**：
+  - ChatGPT (chatgpt.com)
+  - Claude (claude.ai)
+  - Gemini (gemini.google.com)
+  - DeepSeek (chat.deepseek.com)
+  - Grok (grok.com)
+  - Qwen (chat.qwen.ai)
 - **无需 API Token**：直接利用这些模型的免费网页版接口。
 - **浏览器自动化**：使用 Playwright 和 CDP 连接到您现有的 Chrome 实例，复用您的登录状态。
 - **极致省钱**：适合希望获得高质量模型输出但不想支付 API 费用的开发者。
@@ -119,6 +136,9 @@ uv sync
    - ChatGPT: [https://chatgpt.com](https://chatgpt.com)
    - Claude: [https://claude.ai](https://claude.ai)
    - Gemini: [https://gemini.google.com](https://gemini.google.com)
+   - DeepSeek: [https://chat.deepseek.com](https://chat.deepseek.com)
+   - Grok: [https://grok.com](https://grok.com)
+   - Qwen: [https://chat.qwen.ai](https://chat.qwen.ai)
 3. **不要关闭这个窗口！** 把它最小化放在后台即可。
 
 ### 3. 配置 IDE (Trae/Cursor)
@@ -145,5 +165,3 @@ uv sync
 在 IDE 的对话框中，直接使用自然语言调用工具：
 - “请使用 `ask_all` 工具，让它们分别对比一下 Vue 和 React，并给我一个汇总建议。”
 - “让 `ask_claude` 帮我写一个 Python 爬虫脚本。”
-
-See [USAGE.md](USAGE.md) for detailed instructions on how to start Chrome and configure the MCP server.

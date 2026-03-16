@@ -7,13 +7,16 @@ import json
 from models.chatgpt import ChatGPTAdapter
 from models.claude import ClaudeAdapter
 from models.gemini import GeminiAdapter
+from models.deepseek import DeepSeekAdapter
+from models.grok import GrokAdapter
+from models.qwen import QwenAdapter
 
 mcp = FastMCP("web-llm-agent")
 
 async def get_browser_context(p) -> BrowserContext:
     """Connect to local Chrome instance"""
     try:
-        browser = await p.chromium.connect_over_cdp("http://localhost:9222")
+        browser = await p.chromium.connect_over_cdp("http://127.0.0.1:9222")
         return browser.contexts[0]
     except Exception as e:
         raise Exception(f"Failed to connect to Chrome: {e}. Please ensure Chrome is running with remote debugging port 9222.")
@@ -28,16 +31,17 @@ async def get_or_create_page(context: BrowserContext, adapter_cls) -> tuple[Page
     """Find existing tab for the model or create new one"""
     # Instantiate a temp adapter just to get properties
     temp_adapter = adapter_cls(None)
-    keyword = temp_adapter.domain_keyword
+    keywords = temp_adapter.domain_keywords
     start_url = temp_adapter.start_url
     
     for page in context.pages:
-        if keyword in page.url:
-            logger.info(f"Found existing page for {keyword}: {page.url}")
+        page_url = page.url or ""
+        if any(k in page_url for k in keywords):
+            logger.info(f"Found existing page for {keywords}: {page.url}")
             await page.bring_to_front()
             return page, True
             
-    logger.info(f"Creating new page for {keyword} with url {start_url}")
+    logger.info(f"Creating new page for {keywords} with url {start_url}")
     page = await context.new_page()
     await page.goto(start_url)
     return page, False
@@ -48,7 +52,10 @@ async def run_model_task(model_name: str, query: str, context: BrowserContext):
     adapters = {
         "chatgpt": ChatGPTAdapter,
         "claude": ClaudeAdapter,
-        "gemini": GeminiAdapter
+        "gemini": GeminiAdapter,
+        "deepseek": DeepSeekAdapter,
+        "grok": GrokAdapter,
+        "qwen": QwenAdapter
     }
     
     if model_name not in adapters:
@@ -99,9 +106,30 @@ async def ask_gemini(query: str) -> str:
         return await run_model_task("gemini", query, context)
 
 @mcp.tool()
+async def ask_deepseek(query: str) -> str:
+    """Ask a question to DeepSeek web interface."""
+    async with async_playwright() as p:
+        context = await get_browser_context(p)
+        return await run_model_task("deepseek", query, context)
+
+@mcp.tool()
+async def ask_grok(query: str) -> str:
+    """Ask a question to Grok web interface."""
+    async with async_playwright() as p:
+        context = await get_browser_context(p)
+        return await run_model_task("grok", query, context)
+
+@mcp.tool()
+async def ask_qwen(query: str) -> str:
+    """Ask a question to Qwen web interface."""
+    async with async_playwright() as p:
+        context = await get_browser_context(p)
+        return await run_model_task("qwen", query, context)
+
+@mcp.tool()
 async def ask_all(query: str) -> str:
     """
-    Ask the same question to ALL supported models (ChatGPT, Claude, Gemini) in parallel.
+    Ask the same question to ALL supported models (ChatGPT, Claude, Gemini, DeepSeek, Grok, Qwen) in parallel.
     Returns a JSON string containing answers from all models.
     """
     async with async_playwright() as p:
@@ -116,7 +144,10 @@ async def ask_all(query: str) -> str:
         tasks = [
             delayed_start("chatgpt", query, context, 0),
             delayed_start("claude", query, context, 2),
-            delayed_start("gemini", query, context, 4)
+            delayed_start("gemini", query, context, 4),
+            delayed_start("deepseek", query, context, 6),
+            delayed_start("grok", query, context, 8),
+            delayed_start("qwen", query, context, 10),
         ]
         
         # Run in parallel
@@ -125,7 +156,10 @@ async def ask_all(query: str) -> str:
         response = {
             "chatgpt": results[0],
             "claude": results[1],
-            "gemini": results[2]
+            "gemini": results[2],
+            "deepseek": results[3],
+            "grok": results[4],
+            "qwen": results[5],
         }
         
         return json.dumps(response, indent=2, ensure_ascii=False)

@@ -28,7 +28,7 @@ class GeminiAdapter(ModelAdapter):
         else:
             await self.page.keyboard.press("Enter")
         
-        # 等待输入框清空
+        # 等待输入框清空，作为发送成功的标志
         try:
              await self.page.wait_for_function(
                  f"document.querySelector(\"{input_selector}\").textContent === ''",
@@ -36,6 +36,10 @@ class GeminiAdapter(ModelAdapter):
              )
         except:
              pass
+             
+        # 等待新的回答出现 (旧回答数量 + 1)
+        # 或者等待 loading 状态消失
+        await asyncio.sleep(2) # 简单等待一下
 
     async def get_latest_answer(self) -> str:
         last_text = ""

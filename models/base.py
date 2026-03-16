@@ -20,6 +20,10 @@ class ModelAdapter(ABC):
         """Keyword to identify this model's tab URL"""
         pass
 
+    @property
+    def domain_keywords(self) -> list[str]:
+        return [self.domain_keyword]
+
     async def ensure_logged_in(self) -> bool:
         """Check if user is logged in, return False if not"""
         # Default implementation: check if URL redirects to login

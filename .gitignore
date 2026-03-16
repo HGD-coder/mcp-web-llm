@@ -5,3 +5,5 @@ __pycache__/
 .env
 .DS_Store
 *.log
+debug_*.py
+test_*.py
