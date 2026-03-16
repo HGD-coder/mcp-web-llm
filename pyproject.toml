@@ -1,7 +1,7 @@
 [project]
 name = "mcp-web-llm"
 version = "0.1.0"
-description = "Turn web versions of ChatGPT, Claude, and Gemini into MCP tools for your AI IDE."
+description = "A Multi-LLM Aggregator MCP server that uses web automation to query ChatGPT, Claude, and Gemini without API keys or tokens."
 dependencies = ["README.md"
 requires-python = "==3.12.*"
 dependencies = [

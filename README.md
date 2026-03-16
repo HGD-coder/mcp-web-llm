@@ -1,15 +1,15 @@
-# MCP Web LLM Agent
+# MCP Web LLM Aggregator
 
-Turn web versions of **ChatGPT**, **Claude**, and **Gemini** into MCP tools for your AI IDE (like Trae or Cursor).
+A **Zero-Cost, Non-API** MCP Server that aggregates web versions of **ChatGPT**, **Claude**, and **Gemini**.
 
-Save API costs by using your existing web sessions.
+Query multiple top-tier models in parallel directly from your AI IDE (Trae, Cursor, etc.) using your local browser sessions. **No API keys or tokens required.**
 
 ## Features
 
-- **Zero API Cost**: Uses the web interface of LLMs.
-- **Multi-Model Support**: Query ChatGPT, Claude, and Gemini.
-- **Aggregation**: `ask_all` tool queries all models in parallel.
-- **Browser Automation**: Uses Playwright and CDP to connect to your local Chrome instance.
+- **Multi-Model Aggregation**: The `ask_all` tool queries ChatGPT, Claude, and Gemini simultaneously and returns a consolidated JSON response.
+- **No API Tokens**: Leverages the free web interfaces of these models.
+- **Browser Automation**: Uses Playwright and CDP to connect to your existing Chrome instance, reusing your login state.
+- **Cost Saving**: Perfect for developers who want high-quality model outputs without the API costs.
 
 ## Usage
 
