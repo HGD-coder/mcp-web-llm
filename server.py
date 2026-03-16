@@ -3,6 +3,9 @@ from playwright.async_api import async_playwright, BrowserContext, Page
 import asyncio
 import sys
 import json
+import os
+import subprocess
+import platform
 
 from models.chatgpt import ChatGPTAdapter
 from models.claude import ClaudeAdapter
@@ -13,18 +16,82 @@ from models.qwen import QwenAdapter
 
 mcp = FastMCP("web-llm-agent")
 
+CDP_ENDPOINT = "http://127.0.0.1:9222"
+DEFAULT_PROFILE_DIR_WIN = r"C:\chrome_debug_profile"
+
+def find_chrome_executable() -> str | None:
+    candidates = []
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if local_appdata:
+        candidates.append(os.path.join(local_appdata, "Google", "Chrome", "Application", "chrome.exe"))
+    candidates.extend(
+        [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        ]
+    )
+    for p in candidates:
+        if p and os.path.exists(p):
+            return p
+    return None
+
+def launch_chrome_with_cdp(urls: list[str]) -> None:
+    if platform.system().lower().startswith("win"):
+        chrome = find_chrome_executable()
+        if not chrome:
+            raise Exception("chrome.exe not found. Please install Google Chrome or start Chrome with --remote-debugging-port=9222 manually.")
+        profile_dir = os.environ.get("MCP_WEB_LLM_PROFILE_DIR", DEFAULT_PROFILE_DIR_WIN)
+        args = [
+            chrome,
+            "--remote-debugging-address=127.0.0.1",
+            "--remote-debugging-port=9222",
+            f'--user-data-dir={profile_dir}',
+            "--disable-blink-features=AutomationControlled",
+            "--new-window",
+            *urls,
+        ]
+        creationflags = 0
+        if hasattr(subprocess, "DETACHED_PROCESS"):
+            creationflags |= subprocess.DETACHED_PROCESS
+        if hasattr(subprocess, "CREATE_NEW_PROCESS_GROUP"):
+            creationflags |= subprocess.CREATE_NEW_PROCESS_GROUP
+        subprocess.Popen(args, close_fds=True, creationflags=creationflags)
+        return
+
+    raise Exception("Auto-launch is currently supported on Windows only. Please start Chrome with --remote-debugging-port=9222 manually.")
+
+async def wait_for_cdp(p, timeout_s: float = 15.0) -> BrowserContext:
+    deadline = asyncio.get_event_loop().time() + timeout_s
+    last_err: Exception | None = None
+    while asyncio.get_event_loop().time() < deadline:
+        try:
+            browser = await p.chromium.connect_over_cdp(CDP_ENDPOINT)
+            return browser.contexts[0]
+        except Exception as e:
+            last_err = e
+            await asyncio.sleep(0.5)
+    raise Exception(f"Failed to connect to Chrome at {CDP_ENDPOINT}: {last_err}")
+
 async def get_browser_context(p) -> BrowserContext:
     """Connect to local Chrome instance"""
     try:
-        browser = await p.chromium.connect_over_cdp("http://127.0.0.1:9222")
-        return browser.contexts[0]
+        return await wait_for_cdp(p, timeout_s=2.0)
     except Exception as e:
-        raise Exception(f"Failed to connect to Chrome: {e}. Please ensure Chrome is running with remote debugging port 9222.")
+        urls = [
+            "https://chatgpt.com/",
+            "https://claude.ai/",
+            "https://gemini.google.com/",
+            "https://chat.deepseek.com/",
+            "https://grok.com/",
+            "https://chat.qwen.ai/",
+        ]
+        launch_chrome_with_cdp(urls)
+        return await wait_for_cdp(p, timeout_s=20.0)
 
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
 async def get_or_create_page(context: BrowserContext, adapter_cls) -> tuple[Page, bool]:
