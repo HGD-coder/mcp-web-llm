@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import platform
+import urllib.request
 
 from models.chatgpt import ChatGPTAdapter
 from models.claude import ClaudeAdapter
@@ -93,6 +94,51 @@ import logging
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stderr)
 logger = logging.getLogger(__name__)
+
+def doctor_report() -> dict:
+    report: dict = {
+        "project": "mcp-web-llm",
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+        "cdp_endpoint": CDP_ENDPOINT,
+        "cdp_reachable": False,
+        "chrome_executable": find_chrome_executable(),
+        "profile_dir": os.environ.get("MCP_WEB_LLM_PROFILE_DIR", DEFAULT_PROFILE_DIR_WIN),
+        "open_tabs": [],
+        "env": {
+            "MCP_WEB_LLM_PROFILE_DIR": os.environ.get("MCP_WEB_LLM_PROFILE_DIR"),
+        },
+    }
+    try:
+        with urllib.request.urlopen(f"{CDP_ENDPOINT}/json/version", timeout=2) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            report["cdp_reachable"] = True
+            report["cdp_browser"] = data.get("Browser")
+    except Exception as e:
+        report["cdp_error"] = str(e)
+        return report
+
+    try:
+        with urllib.request.urlopen(f"{CDP_ENDPOINT}/json/list", timeout=2) as resp:
+            tabs = json.loads(resp.read().decode("utf-8"))
+            report["open_tabs"] = [t.get("url") for t in tabs if isinstance(t, dict) and t.get("url")]
+    except Exception as e:
+        report["tabs_error"] = str(e)
+
+    return report
+
+def doctor_cli() -> int:
+    print(json.dumps(doctor_report(), indent=2, ensure_ascii=False))
+    return 0
+
+def cli_main() -> None:
+    args = sys.argv[1:]
+    if args and args[0] in {"doctor", "diag", "diagnose"}:
+        raise SystemExit(doctor_cli())
+    if args and args[0] in {"-h", "--help", "help"}:
+        print("Usage:\n  mcp-web-llm            Start MCP server over stdio\n  mcp-web-llm doctor     Show diagnostics", file=sys.stderr)
+        return
+    mcp.run(transport="stdio")
 
 async def get_or_create_page(context: BrowserContext, adapter_cls) -> tuple[Page, bool]:
     """Find existing tab for the model or create new one"""
@@ -232,4 +278,4 @@ async def ask_all(query: str) -> str:
         return json.dumps(response, indent=2, ensure_ascii=False)
 
 if __name__ == "__main__":
-    mcp.run(transport='stdio')
+    cli_main()

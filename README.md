@@ -22,7 +22,25 @@ Query multiple top-tier models in parallel directly from your AI IDE (Trae, Curs
 - **Browser Automation**: Uses Playwright and CDP to connect to your existing Chrome instance, reusing your login state.
 - **Cost Saving**: Perfect for developers who want high-quality model outputs without the API costs.
 
+## Tools
+
+- `ask_chatgpt(query: str) -> str`
+- `ask_claude(query: str) -> str`
+- `ask_gemini(query: str) -> str`
+- `ask_deepseek(query: str) -> str`
+- `ask_grok(query: str) -> str`
+- `ask_qwen(query: str) -> str`
+- `ask_all(query: str) -> str` returns a JSON string with keys: `chatgpt/claude/gemini/deepseek/grok/qwen`
+
 ## Usage
+
+### 0. Install (Recommended)
+
+Install as a CLI so you don't need to clone the repo:
+
+```bash
+uv tool install git+https://github.com/HGD-coder/mcp-web-llm.git
+```
 
 ### 1. Prerequisites
 
@@ -65,12 +83,26 @@ Add to your `mcp-servers.json`:
 {
   "mcpServers": {
     "web-llm-agent": {
-      "command": "uv",
-      "args": ["run", "server.py"],
-      "cwd": "/path/to/mcp-web-llm",
+      "command": "mcp-web-llm",
+      "args": [],
       "env": {
         "PYTHONIOENCODING": "utf-8"
       }
+    }
+  }
+}
+```
+
+If you run from source instead:
+
+```json
+{
+  "mcpServers": {
+    "web-llm-agent": {
+      "command": "uv",
+      "args": ["run", "server.py"],
+      "cwd": "/path/to/mcp-web-llm",
+      "env": { "PYTHONIOENCODING": "utf-8" }
     }
   }
 }
@@ -81,6 +113,20 @@ Add to your `mcp-servers.json`:
 In your IDE chat, use natural language:
 - "Use `ask_all` to compare Vue vs React."
 - "Ask Claude to write a Python script."
+
+## Troubleshooting
+
+- CDP (9222) not running: run `mcp-web-llm doctor` to see status; on Windows the server can auto-launch a dedicated Chrome window.
+- Timeouts/no output: usually login required, CAPTCHA/rate limit, or site UI changes; try keeping the dedicated Chrome window open and logged in.
+
+## Security & Privacy
+
+- Uses your local Chrome session via CDP; it can access pages you have logged into in that dedicated Chrome profile.
+- This project does not require API keys or tokens, but website terms and anti-bot systems may apply; use at your own risk.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
 
 ---
 
@@ -106,7 +152,25 @@ In your IDE chat, use natural language:
 - **浏览器自动化**：使用 Playwright 和 CDP 连接到您现有的 Chrome 实例，复用您的登录状态。
 - **极致省钱**：适合希望获得高质量模型输出但不想支付 API 费用的开发者。
 
+## 工具列表
+
+- `ask_chatgpt(query: str) -> str`
+- `ask_claude(query: str) -> str`
+- `ask_gemini(query: str) -> str`
+- `ask_deepseek(query: str) -> str`
+- `ask_grok(query: str) -> str`
+- `ask_qwen(query: str) -> str`
+- `ask_all(query: str) -> str` 返回 JSON 字符串（包含 `chatgpt/claude/gemini/deepseek/grok/qwen` 六个字段）
+
 ## 使用指南
+
+### 0. 安装（推荐）
+
+推荐使用 CLI 安装，这样无需 clone 仓库：
+
+```bash
+uv tool install git+https://github.com/HGD-coder/mcp-web-llm.git
+```
 
 ### 1. 环境准备
 
@@ -149,12 +213,26 @@ uv sync
 {
   "mcpServers": {
     "web-llm-agent": {
-      "command": "uv",
-      "args": ["run", "server.py"],
-      "cwd": "D:\\path\\to\\mcp-web-llm",
+      "command": "mcp-web-llm",
+      "args": [],
       "env": {
         "PYTHONIOENCODING": "utf-8"
       }
+    }
+  }
+}
+```
+
+如果你选择从源码运行：
+
+```json
+{
+  "mcpServers": {
+    "web-llm-agent": {
+      "command": "uv",
+      "args": ["run", "server.py"],
+      "cwd": "D:\\path\\to\\mcp-web-llm",
+      "env": { "PYTHONIOENCODING": "utf-8" }
     }
   }
 }
@@ -165,3 +243,17 @@ uv sync
 在 IDE 的对话框中，直接使用自然语言调用工具：
 - “请使用 `ask_all` 工具，让它们分别对比一下 Vue 和 React，并给我一个汇总建议。”
 - “让 `ask_claude` 帮我写一个 Python 爬虫脚本。”
+
+## 排障指南
+
+- 9222 未开启：运行 `mcp-web-llm doctor` 查看状态；Windows 下可自动拉起一个专用 Chrome 窗口。
+- 超时/无输出：通常是未登录、验证码/风控、或站点页面结构更新导致；建议保持专用 Chrome 窗口常驻并登录。
+
+## 安全与隐私
+
+- 本项目通过 CDP 接管本地 Chrome 会话；它能访问该专用 profile 中你已登录的网站页面。
+- 本项目不需要 API Key/Token，但网页版条款与反爬机制可能会限制使用；请自行评估风险。
+
+## 许可证
+
+MIT，详见 [LICENSE](LICENSE)。

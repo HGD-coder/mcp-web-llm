@@ -7,3 +7,5 @@ __pycache__/
 *.log
 debug_*.py
 test_*.py
+build/
+*.egg-info/

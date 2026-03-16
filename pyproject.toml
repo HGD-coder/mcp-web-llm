@@ -1,10 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "mcp-web-llm"
 version = "0.1.0"
-description = "A Multi-LLM Aggregator MCP server that uses web automation to query ChatGPT, Claude, and Gemini without API keys or tokens."
+description = "A Multi-LLM Aggregator MCP server that uses web automation to query ChatGPT, Claude, Gemini, DeepSeek, Grok, and Qwen without API keys or tokens."
 readme = "README.md"
 requires-python = "==3.12.*"
 dependencies = [
     "mcp>=1.25.0",
     "playwright>=1.58.0",
 ]
+
+[project.license]
+text = "MIT"
+
+[project.scripts]
+mcp-web-llm = "server:cli_main"
+
+[tool.setuptools]
+py-modules = ["server"]
+packages = ["models"]
