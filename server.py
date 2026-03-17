@@ -280,11 +280,11 @@ async def ask_all(query: str) -> str:
 
         tasks = [
             delayed_start("chatgpt", query, context, 0),
-            delayed_start("claude", query, context, 2),
-            delayed_start("gemini", query, context, 4),
-            delayed_start("deepseek", query, context, 6),
-            delayed_start("grok", query, context, 8),
-            delayed_start("qwen", query, context, 10),
+            delayed_start("claude", query, context, 1),
+            delayed_start("gemini", query, context, 2),
+            delayed_start("deepseek", query, context, 3),
+            delayed_start("grok", query, context, 4),
+            delayed_start("qwen", query, context, 5),
         ]
         
         # Run in parallel
