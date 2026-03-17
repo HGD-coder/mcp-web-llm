@@ -51,6 +51,10 @@ class ModelAdapter(ABC):
         pass
 
     @abstractmethod
-    async def get_latest_answer(self) -> str:
+    async def get_latest_answer(self, min_len: int = 0) -> str:
         """Wait for and retrieve the generated answer"""
         pass
+
+    async def get_content_length(self) -> int:
+        """Get the number of message bubbles"""
+        return 0

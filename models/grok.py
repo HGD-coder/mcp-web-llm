@@ -50,29 +50,36 @@ class GrokAdapter(ModelAdapter):
         
         await self.page.keyboard.press("Enter")
 
-    async def get_latest_answer(self) -> str:
+    async def _get_bubbles(self):
+        for sel in [
+            "main div[dir='auto']",
+            "main [role='listitem']",
+            "main [role='article']",
+            ".prose",
+            "div[class*='message']",
+            "div[class*='markdown']",
+        ]:
+            try:
+                bubbles = await self.page.locator(sel).all_text_contents()
+                bubbles = [b.strip() for b in bubbles if (b or "").strip()]
+                if bubbles:
+                    return bubbles
+            except:
+                continue
+        return []
+
+    async def get_content_length(self) -> int:
+        bubbles = await self._get_bubbles()
+        return len(bubbles)
+
+    async def get_latest_answer(self, min_len: int = 0) -> str:
         last_text = ""
         stable_count = 0
         last_query = getattr(self, "_last_query", "") or ""
         
         for _ in range(120):
-            bubbles = []
-            for sel in [
-                "main div[dir='auto']",
-                "main [role='listitem']",
-                "main [role='article']",
-                ".prose",
-                "div[class*='message']",
-                "div[class*='markdown']",
-            ]:
-                try:
-                    bubbles = await self.page.locator(sel).all_text_contents()
-                    bubbles = [b.strip() for b in bubbles if (b or "").strip()]
-                    if bubbles:
-                        break
-                except:
-                    continue
-            if not bubbles:
+            bubbles = await self._get_bubbles()
+            if not bubbles or len(bubbles) <= min_len:
                 await asyncio.sleep(1)
                 continue
             

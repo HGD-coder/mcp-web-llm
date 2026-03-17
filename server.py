@@ -202,9 +202,16 @@ async def run_model_task(model_name: str, query: str, context: BrowserContext):
             return f"Error: Please log in to {model_name} in the opened Chrome window."
             
         logger.info(f"Sending message to {model_name}...")
+        
+        # Snapshot current state
+        try:
+            prev_len = await adapter.get_content_length()
+        except:
+            prev_len = 0
+            
         await adapter.send_message(query)
         logger.info(f"Waiting for answer from {model_name}...")
-        answer = await adapter.get_latest_answer()
+        answer = await adapter.get_latest_answer(min_len=prev_len)
         logger.info(f"Got answer from {model_name}: {answer[:50]}...")
         return answer
         

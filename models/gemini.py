@@ -41,14 +41,21 @@ class GeminiAdapter(ModelAdapter):
         # 或者等待 loading 状态消失
         await asyncio.sleep(2) # 简单等待一下
 
-    async def get_latest_answer(self) -> str:
+    async def _get_bubbles(self):
+        # Gemini 的回答通常在 .model-response-text 类下或 message-content
+        return await self.page.locator(".model-response-text, message-content").all_text_contents()
+
+    async def get_content_length(self) -> int:
+        bubbles = await self._get_bubbles()
+        return len(bubbles)
+
+    async def get_latest_answer(self, min_len: int = 0) -> str:
         last_text = ""
         stable_count = 0
         
         for _ in range(120):
-            # Gemini 的回答通常在 .model-response-text 类下或 message-content
-            bubbles = await self.page.locator(".model-response-text, message-content").all_text_contents()
-            if not bubbles:
+            bubbles = await self._get_bubbles()
+            if not bubbles or len(bubbles) <= min_len:
                 await asyncio.sleep(1)
                 continue
             
