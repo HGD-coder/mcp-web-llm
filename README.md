@@ -42,6 +42,11 @@ Install as a CLI so you don't need to clone the repo:
 uv tool install git+https://github.com/HGD-coder/mcp-web-llm.git
 ```
 
+> **Windows Users Note:** If you encounter permission errors during installation (e.g., `os error -2147024891`), please use the `--link-mode=copy` flag:
+> ```bash
+> uv tool install git+https://github.com/HGD-coder/mcp-web-llm.git --link-mode=copy
+> ```
+
 ### 1. Prerequisites
 
 This project uses `uv` for dependency management. Run in the project root:
@@ -171,6 +176,11 @@ MIT. See [LICENSE](LICENSE).
 ```bash
 uv tool install git+https://github.com/HGD-coder/mcp-web-llm.git
 ```
+
+> **Windows 用户注意：** 如果安装时遇到权限报错（如 `os error -2147024891`），请添加 `--link-mode=copy` 参数：
+> ```bash
+> uv tool install git+https://github.com/HGD-coder/mcp-web-llm.git --link-mode=copy
+> ```
 
 ### 1. 环境准备
 
