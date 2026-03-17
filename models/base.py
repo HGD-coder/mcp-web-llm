@@ -36,12 +36,15 @@ class ModelAdapter(ABC):
         try:
             await self.page.click(selector)
             input_box = self.page.locator(selector)
-            await input_box.fill("") # Clear first
             
-            for char in text:
-                await input_box.type(char, delay=random.randint(30, 80))
-                if random.random() < 0.05:
-                    await asyncio.sleep(random.uniform(0.1, 0.3))
+            # Use fill for instant typing (faster/stable), fallback to type if needed
+            try:
+                await input_box.fill(text)
+            except:
+                # Fallback to character-by-character if fill fails (e.g. some rich text editors)
+                await input_box.fill("") 
+                await input_box.type(text, delay=random.randint(1, 10))
+                
         except PlaywrightTimeoutError as e:
             raise Exception(f"Timeout waiting for element '{selector}'. The page might be loading slowly or the layout changed. Please try again.") from e
 
