@@ -27,11 +27,12 @@ class ChatGPTAdapter(ModelAdapter):
             await self.page.keyboard.press("Enter")
 
     async def _get_bubbles(self):
-        return await self.page.locator(".markdown").all_text_contents()
-
-    async def get_content_length(self) -> int:
-        bubbles = await self._get_bubbles()
-        return len(bubbles)
+        # We need to exclude the user's prompt which might be caught in some selectors
+        bubbles = await self.page.locator("div[data-message-author-role='assistant']").all_text_contents()
+        if not bubbles:
+            # Fallback to older class if assistant role is not found
+            bubbles = await self.page.locator(".markdown").all_text_contents()
+        return bubbles
 
     async def get_latest_answer(self, min_len: int = 0) -> str:
         last_text = ""

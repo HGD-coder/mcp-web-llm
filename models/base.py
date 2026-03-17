@@ -60,4 +60,12 @@ class ModelAdapter(ABC):
 
     async def get_content_length(self) -> int:
         """Get the number of message bubbles"""
-        return 0
+        try:
+            return len(await self._get_bubbles())
+        except:
+            return 0
+
+    @abstractmethod
+    async def _get_bubbles(self) -> list[str]:
+        """Get all message bubbles to track conversation length"""
+        pass

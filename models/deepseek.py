@@ -84,10 +84,6 @@ class DeepSeekAdapter(ModelAdapter):
     async def _get_bubbles(self):
         return await self.page.locator(".ds-markdown, .markdown-body, div[class*='markdown'], div[class*='message']").all_text_contents()
 
-    async def get_content_length(self) -> int:
-        bubbles = await self._get_bubbles()
-        return len(bubbles)
-
     async def get_latest_answer(self, min_len: int = 0) -> str:
         last_text = ""
         stable_count = 0
