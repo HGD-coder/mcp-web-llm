@@ -121,6 +121,28 @@ uv sync
 - “请使用 `ask_all` 工具，让它们分别对比一下 Vue 和 React，并给我一个汇总建议。”
 - “让 `ask_claude` 帮我写一个 Python 爬虫脚本。”
 
+## 架构说明
+
+```mermaid
+graph TD
+    A[AI IDE <br> Trae / Cursor] -->|MCP 协议| B(mcp-web-llm 服务器)
+    B -->|CDP / Playwright| C[本地 Chrome 浏览器 <br> 端口 9222]
+    C -->|网页自动化| D1(ChatGPT)
+    C -->|网页自动化| D2(Claude)
+    C -->|网页自动化| D3(Gemini)
+    C -->|网页自动化| D4(DeepSeek)
+    C -->|网页自动化| D5(Grok)
+    C -->|网页自动化| D6(Qwen)
+```
+
+## 贡献指南
+
+欢迎任何形式的贡献！如果您希望添加对新模型的支持或改进现有的自动化脚本：
+1. Fork 本仓库。
+2. 为您的功能或错误修复创建一个新分支。
+3. 提交 Pull Request，并附上您所做更改的详细说明。
+在提交之前，请确保使用 `uv run server.py` 在本地测试您的更改。
+
 ## 排障指南
 
 - 9222 未开启：运行 `mcp-web-llm doctor` 查看状态；Windows 下可自动拉起一个专用 Chrome 窗口。

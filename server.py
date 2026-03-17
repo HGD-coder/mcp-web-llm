@@ -1,5 +1,5 @@
 from mcp.server.fastmcp import FastMCP
-from playwright.async_api import async_playwright, BrowserContext, Page
+from playwright.async_api import async_playwright, BrowserContext, Page, TimeoutError as PlaywrightTimeoutError
 import asyncio
 import sys
 import json
@@ -7,6 +7,9 @@ import os
 import subprocess
 import platform
 import urllib.request
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from models.chatgpt import ChatGPTAdapter
 from models.claude import ClaudeAdapter
@@ -17,10 +20,15 @@ from models.qwen import QwenAdapter
 
 mcp = FastMCP("web-llm-agent")
 
-CDP_ENDPOINT = "http://127.0.0.1:9222"
+cdp_port = os.getenv("MCP_WEB_LLM_CDP_PORT", "9222")
+CDP_ENDPOINT = f"http://127.0.0.1:{cdp_port}"
 DEFAULT_PROFILE_DIR_WIN = r"C:\chrome_debug_profile"
 
 def find_chrome_executable() -> str | None:
+    env_chrome_path = os.getenv("MCP_WEB_LLM_CHROME_PATH")
+    if env_chrome_path and os.path.exists(env_chrome_path):
+        return env_chrome_path
+
     candidates = []
     local_appdata = os.environ.get("LOCALAPPDATA")
     if local_appdata:
@@ -39,13 +47,14 @@ def find_chrome_executable() -> str | None:
 def launch_chrome_with_cdp(urls: list[str]) -> None:
     if platform.system().lower().startswith("win"):
         chrome = find_chrome_executable()
+        cdp_port = os.getenv("MCP_WEB_LLM_CDP_PORT", "9222")
         if not chrome:
-            raise Exception("chrome.exe not found. Please install Google Chrome or start Chrome with --remote-debugging-port=9222 manually.")
+            raise Exception(f"chrome.exe not found. Please install Google Chrome or start Chrome with --remote-debugging-port={cdp_port} manually.")
         profile_dir = os.environ.get("MCP_WEB_LLM_PROFILE_DIR", DEFAULT_PROFILE_DIR_WIN)
         args = [
             chrome,
             "--remote-debugging-address=127.0.0.1",
-            "--remote-debugging-port=9222",
+            f"--remote-debugging-port={cdp_port}",
             f'--user-data-dir={profile_dir}',
             "--disable-blink-features=AutomationControlled",
             "--new-window",
@@ -59,7 +68,8 @@ def launch_chrome_with_cdp(urls: list[str]) -> None:
         subprocess.Popen(args, close_fds=True, creationflags=creationflags)
         return
 
-    raise Exception("Auto-launch is currently supported on Windows only. Please start Chrome with --remote-debugging-port=9222 manually.")
+    cdp_port = os.getenv("MCP_WEB_LLM_CDP_PORT", "9222")
+    raise Exception(f"Auto-launch is currently supported on Windows only. Please start Chrome with --remote-debugging-port={cdp_port} manually.")
 
 async def wait_for_cdp(p, timeout_s: float = 15.0) -> BrowserContext:
     deadline = asyncio.get_event_loop().time() + timeout_s
@@ -156,7 +166,14 @@ async def get_or_create_page(context: BrowserContext, adapter_cls) -> tuple[Page
             
     logger.info(f"Creating new page for {keywords} with url {start_url}")
     page = await context.new_page()
-    await page.goto(start_url)
+    try:
+        await page.goto(start_url)
+    except PlaywrightTimeoutError:
+        logger.warning(f"Timeout when loading {start_url}, retrying once...")
+        try:
+            await page.goto(start_url)
+        except PlaywrightTimeoutError as e:
+            raise Exception(f"Failed to load {start_url} due to network timeout. Please check your connection or try again later.") from e
     return page, False
 
 async def run_model_task(model_name: str, query: str, context: BrowserContext):

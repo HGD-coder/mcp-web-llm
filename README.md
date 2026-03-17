@@ -121,6 +121,28 @@ In your IDE chat, use natural language:
 - "Use `ask_all` to compare Vue vs React."
 - "Ask Claude to write a Python script."
 
+## Architecture
+
+```mermaid
+graph TD
+    A[AI IDE <br> Trae / Cursor] -->|MCP Protocol| B(mcp-web-llm Server)
+    B -->|CDP / Playwright| C[Local Chrome Browser <br> Port 9222]
+    C -->|Web Automation| D1(ChatGPT)
+    C -->|Web Automation| D2(Claude)
+    C -->|Web Automation| D3(Gemini)
+    C -->|Web Automation| D4(DeepSeek)
+    C -->|Web Automation| D5(Grok)
+    C -->|Web Automation| D6(Qwen)
+```
+
+## Contributing
+
+Contributions are welcome! If you'd like to add support for a new model or improve the existing automation scripts:
+1. Fork the repository.
+2. Create a new branch for your feature or bug fix.
+3. Submit a pull request with a detailed description of your changes.
+Please make sure to test your changes locally using `uv run server.py`.
+
 ## Troubleshooting
 
 - CDP (9222) not running: run `mcp-web-llm doctor` to see status; on Windows the server can auto-launch a dedicated Chrome window.
