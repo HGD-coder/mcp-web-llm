@@ -1,0 +1,4 @@
+- [x] 完成 Cursor 的 MCP 流式支持调研
+- [x] 完成 Trae 的 MCP 流式支持调研
+- [x] 产出 `MCP_Streaming_Support_Report.md` 报告文件
+- [x] 报告中包含明确的结论和代码改造建议

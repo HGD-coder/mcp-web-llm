@@ -1,4 +1,4 @@
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 from playwright.async_api import async_playwright, BrowserContext, Page, TimeoutError as PlaywrightTimeoutError
 import asyncio
 import sys
@@ -264,7 +264,7 @@ async def ask_qwen(query: str) -> str:
         return await run_model_task("qwen", query, context)
 
 @mcp.tool()
-async def ask_all(query: str) -> str:
+async def ask_all(query: str, ctx: Context) -> str:
     """
     Ask the same question to ALL supported models (ChatGPT, Claude, Gemini, DeepSeek, Grok, Qwen) in parallel.
     Returns a JSON string containing answers from all models.
@@ -276,7 +276,7 @@ async def ask_all(query: str) -> str:
         async def delayed_start(model, q, c, delay):
             if delay > 0:
                 await asyncio.sleep(delay)
-            return await run_model_task(model, q, c)
+            return model, await run_model_task(model, q, c)
 
         tasks = [
             delayed_start("chatgpt", query, context, 0),
@@ -287,19 +287,22 @@ async def ask_all(query: str) -> str:
             delayed_start("qwen", query, context, 5),
         ]
         
-        # Run in parallel
-        results = await asyncio.gather(*tasks)
+        # Run in parallel and process as they complete
+        results = {}
+        total = len(tasks)
+        completed = 0
         
-        response = {
-            "chatgpt": results[0],
-            "claude": results[1],
-            "gemini": results[2],
-            "deepseek": results[3],
-            "grok": results[4],
-            "qwen": results[5],
-        }
+        await ctx.info(f"Starting {total} models...")
         
-        return json.dumps(response, indent=2, ensure_ascii=False)
+        for coro in asyncio.as_completed(tasks):
+            model_name, answer = await coro
+            results[model_name] = answer
+            completed += 1
+            await ctx.info(f"[{completed}/{total}] {model_name} finished.")
+            
+        # Sort results to maintain consistent order in JSON if needed, or just dump
+        # To match previous behavior, we might want to ensure keys exist, but here we just dump what we got.
+        return json.dumps(results, indent=2, ensure_ascii=False)
 
 if __name__ == "__main__":
     cli_main()
