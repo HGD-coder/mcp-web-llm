@@ -9,6 +9,8 @@ import platform
 import urllib.request
 from dotenv import load_dotenv
 
+from memory import save_message
+
 load_dotenv()
 
 from models.chatgpt import ChatGPTAdapter
@@ -150,22 +152,55 @@ def cli_main() -> None:
         return
     mcp.run(transport="stdio")
 
-async def get_or_create_page(context: BrowserContext, adapter_cls) -> tuple[Page, bool]:
-    """Find existing tab for the model or create new one"""
+active_sessions: dict[str, dict[str, Page]] = {}
+
+def remove_session_page(session_id: str, model_name: str):
+    if session_id in active_sessions and model_name in active_sessions[session_id]:
+        del active_sessions[session_id][model_name]
+        if not active_sessions[session_id]:
+            del active_sessions[session_id]
+
+async def get_or_create_page(context: BrowserContext, adapter_cls, session_id: str, model_name: str) -> tuple[Page, bool]:
+    """Find existing tab for the session+model or create new one"""
+    if session_id not in active_sessions:
+        active_sessions[session_id] = {}
+        
+    if model_name in active_sessions[session_id]:
+        page = active_sessions[session_id][model_name]
+        if not page.is_closed():
+            logger.info(f"Found existing page for session '{session_id}' and model '{model_name}': {page.url}")
+            await page.bring_to_front()
+            return page, True
+        else:
+            remove_session_page(session_id, model_name)
+
     # Instantiate a temp adapter just to get properties
     temp_adapter = adapter_cls(None)
     keywords = temp_adapter.domain_keywords
     start_url = temp_adapter.start_url
     
-    for page in context.pages:
-        page_url = page.url or ""
-        if any(k in page_url for k in keywords):
-            logger.info(f"Found existing page for {keywords}: {page.url}")
-            await page.bring_to_front()
-            return page, True
+    # For default session, fallback to any unassigned existing page matching the model
+    if session_id == "default":
+        for page in context.pages:
+            page_url = page.url or ""
+            if any(k in page_url for k in keywords) and not page.is_closed():
+                is_assigned = any(
+                    page == p 
+                    for s_dict in active_sessions.values() 
+                    for p in s_dict.values()
+                )
+                if not is_assigned:
+                    logger.info(f"Found unassigned existing page for {keywords}: {page.url}, assigning to default session")
+                    active_sessions[session_id][model_name] = page
+                    page.on("close", lambda p, s=session_id, m=model_name: remove_session_page(s, m))
+                    await page.bring_to_front()
+                    return page, True
             
-    logger.info(f"Creating new page for {keywords} with url {start_url}")
+    logger.info(f"Creating new page for session '{session_id}' and model '{model_name}' with url {start_url}")
     page = await context.new_page()
+    active_sessions[session_id][model_name] = page
+    page.on("close", lambda p, s=session_id, m=model_name: remove_session_page(s, m))
+    
     try:
         await page.goto(start_url)
     except PlaywrightTimeoutError:
@@ -173,12 +208,13 @@ async def get_or_create_page(context: BrowserContext, adapter_cls) -> tuple[Page
         try:
             await page.goto(start_url)
         except PlaywrightTimeoutError as e:
+            remove_session_page(session_id, model_name)
             raise Exception(f"Failed to load {start_url} due to network timeout. Please check your connection or try again later.") from e
     return page, False
 
-async def run_model_task(model_name: str, query: str, context: BrowserContext):
+async def run_model_task(model_name: str, query: str, context: BrowserContext, session_id: str = "default"):
     """Execute query on a specific model"""
-    logger.info(f"Starting task for {model_name}")
+    logger.info(f"Starting task for {model_name} (session: {session_id})")
     adapters = {
         "chatgpt": ChatGPTAdapter,
         "claude": ClaudeAdapter,
@@ -194,7 +230,7 @@ async def run_model_task(model_name: str, query: str, context: BrowserContext):
     adapter_cls = adapters[model_name]
     
     try:
-        page, existed = await get_or_create_page(context, adapter_cls)
+        page, existed = await get_or_create_page(context, adapter_cls, session_id, model_name)
         adapter = adapter_cls(page)
         
         # Check login
@@ -209,10 +245,17 @@ async def run_model_task(model_name: str, query: str, context: BrowserContext):
         except:
             prev_len = 0
             
+        # Save user query to DB
+        save_message(session_id, model_name, "user", query)
+            
         await adapter.send_message(query)
         logger.info(f"Waiting for answer from {model_name}...")
         answer = await adapter.get_latest_answer(min_len=prev_len)
         logger.info(f"Got answer from {model_name}: {answer[:50]}...")
+        
+        # Save assistant answer to DB
+        save_message(session_id, model_name, "assistant", answer)
+        
         return answer
         
     except Exception as e:
@@ -222,49 +265,49 @@ async def run_model_task(model_name: str, query: str, context: BrowserContext):
         return err_msg
 
 @mcp.tool()
-async def ask_chatgpt(query: str) -> str:
+async def ask_chatgpt(query: str, session_id: str = "default") -> str:
     """Ask a question to ChatGPT web interface."""
     async with async_playwright() as p:
         context = await get_browser_context(p)
-        return await run_model_task("chatgpt", query, context)
+        return await run_model_task("chatgpt", query, context, session_id)
 
 @mcp.tool()
-async def ask_claude(query: str) -> str:
+async def ask_claude(query: str, session_id: str = "default") -> str:
     """Ask a question to Claude web interface."""
     async with async_playwright() as p:
         context = await get_browser_context(p)
-        return await run_model_task("claude", query, context)
+        return await run_model_task("claude", query, context, session_id)
 
 @mcp.tool()
-async def ask_gemini(query: str) -> str:
+async def ask_gemini(query: str, session_id: str = "default") -> str:
     """Ask a question to Gemini web interface."""
     async with async_playwright() as p:
         context = await get_browser_context(p)
-        return await run_model_task("gemini", query, context)
+        return await run_model_task("gemini", query, context, session_id)
 
 @mcp.tool()
-async def ask_deepseek(query: str) -> str:
+async def ask_deepseek(query: str, session_id: str = "default") -> str:
     """Ask a question to DeepSeek web interface."""
     async with async_playwright() as p:
         context = await get_browser_context(p)
-        return await run_model_task("deepseek", query, context)
+        return await run_model_task("deepseek", query, context, session_id)
 
 @mcp.tool()
-async def ask_grok(query: str) -> str:
+async def ask_grok(query: str, session_id: str = "default") -> str:
     """Ask a question to Grok web interface."""
     async with async_playwright() as p:
         context = await get_browser_context(p)
-        return await run_model_task("grok", query, context)
+        return await run_model_task("grok", query, context, session_id)
 
 @mcp.tool()
-async def ask_qwen(query: str) -> str:
+async def ask_qwen(query: str, session_id: str = "default") -> str:
     """Ask a question to Qwen web interface."""
     async with async_playwright() as p:
         context = await get_browser_context(p)
-        return await run_model_task("qwen", query, context)
+        return await run_model_task("qwen", query, context, session_id)
 
 @mcp.tool()
-async def ask_all(query: str, ctx: Context) -> str:
+async def ask_all(query: str, ctx: Context, session_id: str = "default") -> str:
     """
     Ask the same question to ALL supported models (ChatGPT, Claude, Gemini, DeepSeek, Grok, Qwen) in parallel.
     Returns a JSON string containing answers from all models.
@@ -276,7 +319,7 @@ async def ask_all(query: str, ctx: Context) -> str:
         async def delayed_start(model, q, c, delay):
             if delay > 0:
                 await asyncio.sleep(delay)
-            return model, await run_model_task(model, q, c)
+            return model, await run_model_task(model, q, c, session_id)
 
         tasks = [
             delayed_start("chatgpt", query, context, 0),
@@ -303,6 +346,32 @@ async def ask_all(query: str, ctx: Context) -> str:
         # Sort results to maintain consistent order in JSON if needed, or just dump
         # To match previous behavior, we might want to ensure keys exist, but here we just dump what we got.
         return json.dumps(results, indent=2, ensure_ascii=False)
+
+@mcp.tool()
+async def clear_session(session_id: str) -> str:
+    """
+    Clear and close all browser tabs associated with a specific session_id.
+    """
+    if session_id not in active_sessions:
+        return f"No active tabs found for session: {session_id}"
+    
+    # Iterate over a copy since we might modify the dict
+    models_to_close = list(active_sessions[session_id].keys())
+    closed_count = 0
+    for model_name in models_to_close:
+        page = active_sessions[session_id].get(model_name)
+        if page and not page.is_closed():
+            try:
+                await page.close()
+                closed_count += 1
+            except Exception as e:
+                logger.error(f"Failed to close page for {model_name} in session {session_id}: {e}")
+        
+    # Manual cleanup just in case event handler didn't fire
+    if session_id in active_sessions:
+        del active_sessions[session_id]
+        
+    return f"Successfully cleared session '{session_id}'. Closed {closed_count} tabs."
 
 if __name__ == "__main__":
     cli_main()

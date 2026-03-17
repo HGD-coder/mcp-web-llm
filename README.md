@@ -23,16 +23,19 @@ Query multiple top-tier models in parallel directly from your AI IDE (Trae, Curs
 - **No API Tokens**: Leverages the free web interfaces of these models.
 - **Browser Automation**: Uses Playwright and CDP to connect to your existing Chrome instance, reusing your login state.
 - **Cost Saving**: Perfect for developers who want high-quality model outputs without the API costs.
+- **Multi-Session Isolation**: Supports independent browser tabs for different tasks by passing a `session_id`.
+- **Local Memory**: Automatically saves all conversations to a local SQLite database (`~/.mcp-web-llm/history.db`) for future reference.
 
 ## Tools
 
-- `ask_chatgpt(query: str) -> str`
-- `ask_claude(query: str) -> str`
-- `ask_gemini(query: str) -> str`
-- `ask_deepseek(query: str) -> str`
-- `ask_grok(query: str) -> str`
-- `ask_qwen(query: str) -> str`
-- `ask_all(query: str) -> str` returns a JSON string with keys: `chatgpt/claude/gemini/deepseek/grok/qwen`
+- `ask_chatgpt(query: str, session_id: str = "default") -> str`
+- `ask_claude(query: str, session_id: str = "default") -> str`
+- `ask_gemini(query: str, session_id: str = "default") -> str`
+- `ask_deepseek(query: str, session_id: str = "default") -> str`
+- `ask_grok(query: str, session_id: str = "default") -> str`
+- `ask_qwen(query: str, session_id: str = "default") -> str`
+- `ask_all(query: str, session_id: str = "default") -> str` returns a JSON string with keys: `chatgpt/claude/gemini/deepseek/grok/qwen`
+- `clear_session(session_id: str) -> str`: Closes all browser tabs associated with the given session.
 
 ## Usage
 

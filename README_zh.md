@@ -23,16 +23,19 @@
 - **无需 API Token**：直接利用这些模型的免费网页版接口。
 - **浏览器自动化**：使用 Playwright 和 CDP 连接到您现有的 Chrome 实例，复用您的登录状态。
 - **极致省钱**：适合希望获得高质量模型输出但不想支付 API 费用的开发者。
+- **多会话隔离**：通过传入 `session_id`，支持在不同的浏览器标签页中并行处理互不干扰的多个任务。
+- **本地记忆留痕**：所有的问答对话将自动结构化保存至本地的 SQLite 数据库 (`~/.mcp-web-llm/history.db`)，方便日后检索与复盘。
 
 ## 工具列表
 
-- `ask_chatgpt(query: str) -> str`
-- `ask_claude(query: str) -> str`
-- `ask_gemini(query: str) -> str`
-- `ask_deepseek(query: str) -> str`
-- `ask_grok(query: str) -> str`
-- `ask_qwen(query: str) -> str`
-- `ask_all(query: str) -> str` 返回 JSON 字符串（包含 `chatgpt/claude/gemini/deepseek/grok/qwen` 六个字段）
+- `ask_chatgpt(query: str, session_id: str = "default") -> str`
+- `ask_claude(query: str, session_id: str = "default") -> str`
+- `ask_gemini(query: str, session_id: str = "default") -> str`
+- `ask_deepseek(query: str, session_id: str = "default") -> str`
+- `ask_grok(query: str, session_id: str = "default") -> str`
+- `ask_qwen(query: str, session_id: str = "default") -> str`
+- `ask_all(query: str, session_id: str = "default") -> str` 返回 JSON 字符串（包含 `chatgpt/claude/gemini/deepseek/grok/qwen` 六个字段）
+- `clear_session(session_id: str) -> str` 关闭与指定 session 相关的所有浏览器标签页
 
 ## 使用指南
 
