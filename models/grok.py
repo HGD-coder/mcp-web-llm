@@ -17,7 +17,7 @@ class GrokAdapter(ModelAdapter):
             return False
         return True
 
-    async def send_message(self, query: str):
+    async def send_message(self, query: str, file_paths: list[str] = None):
         self._last_query = query
         candidates = [
             "textarea[placeholder*='Grok']",
@@ -39,6 +39,10 @@ class GrokAdapter(ModelAdapter):
 
         if not input_selector:
             raise Exception("Grok input box not found. Are you logged in?")
+
+        if file_paths:
+            await self.upload_files(file_paths)
+            await asyncio.sleep(2)
 
         if "contenteditable" in input_selector or "role='textbox'" in input_selector:
             await self.page.focus(input_selector)

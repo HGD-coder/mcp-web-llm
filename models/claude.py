@@ -1,6 +1,7 @@
 from .base import ModelAdapter
 import asyncio
 import random
+import logging
 
 class ClaudeAdapter(ModelAdapter):
     @property
@@ -11,18 +12,55 @@ class ClaudeAdapter(ModelAdapter):
     def domain_keyword(self) -> str:
         return "claude.ai"
 
-    async def send_message(self, query: str):
-        # Claude 可能使用 textarea 或者 ProseMirror
-        input_selector = "textarea[data-testid='chat-input-ssr'], .ProseMirror, [contenteditable='true']"
-        try:
-            # 强制等待，因为可能被遮挡
-            await self.page.wait_for_selector(input_selector, timeout=10000, state="attached")
-        except:
+    async def send_message(self, query: str, file_paths: list[str] = None):
+        candidates = [
+            "textarea[data-testid='chat-input-ssr']",
+            ".ProseMirror",
+            "[contenteditable='true'][role='textbox']",
+            "[contenteditable='true']",
+            "textarea:not([readonly]):not([aria-hidden='true'])",
+        ]
+        input_selector = None
+        for sel in candidates:
+            loc = self.page.locator(sel).first
+            try:
+                await loc.wait_for(state="visible", timeout=8000)
+                input_selector = sel
+                break
+            except:
+                continue
+        if not input_selector:
             raise Exception("Claude input box not found. Are you logged in?")
 
-        # 尝试使用键盘直接输入（先聚焦）
-        await self.page.focus(input_selector)
-        await self.page.keyboard.type(query, delay=random.randint(30, 80))
+        if file_paths:
+            # Claude: try clicking attach button first to initialize the file input
+            try:
+                attach_selectors = [
+                    'button[aria-label*="attach" i]',
+                    'button[aria-label*="Attach"]',
+                    'button[aria-label*="file" i]',
+                    'button[data-testid="attach-file"]',
+                    'button[data-testid="file-upload-button"]',
+                    '[aria-label*="attach" i]',
+                ]
+                for sel in attach_selectors:
+                    btn = self.page.locator(sel).first
+                    if await btn.count() > 0:
+                        await btn.click(timeout=3000)
+                        await asyncio.sleep(1)
+                        logging.info(f"Claude: clicked attach button {sel}")
+                        break
+            except Exception as e:
+                logging.warning(f"Claude: failed to click attach button: {e}")
+            
+            await self.upload_files(file_paths)
+            # upload_files already waits 5s internally
+
+        if "contenteditable" in input_selector or "ProseMirror" in input_selector:
+            await self.page.focus(input_selector)
+            await self.page.keyboard.type(query, delay=random.randint(30, 80))
+        else:
+            await self.human_type(input_selector, query)
         
         import asyncio
         await asyncio.sleep(1)

@@ -13,6 +13,7 @@
 ## 核心功能
 
 - **多模型聚合**：`ask_all` 工具同时询问所有支持的模型，并返回汇总的 JSON 结果。
+- **文件/图片上传**：支持本地文件路径与内联 base64 图片，并通过 Playwright 上传到各模型网页端。
 - **支持的模型**：
   - ChatGPT (chatgpt.com)
   - Claude (claude.ai)
@@ -23,16 +24,23 @@
 - **无需 API Token**：直接利用这些模型的免费网页版接口。
 - **浏览器自动化**：使用 Playwright 和 CDP 连接到您现有的 Chrome 实例，复用您的登录状态。
 - **极致省钱**：适合希望获得高质量模型输出但不想支付 API 费用的开发者。
+- **没有长期记忆功能**：之前实验性的 memory/session 功能已经回滚，当前只保留简单的本地聊天历史记录。
 
 ## 工具列表
 
-- `ask_chatgpt(query: str) -> str`
-- `ask_claude(query: str) -> str`
-- `ask_gemini(query: str) -> str`
-- `ask_deepseek(query: str) -> str`
-- `ask_grok(query: str) -> str`
-- `ask_qwen(query: str) -> str`
-- `ask_all(query: str) -> str` 返回 JSON 字符串（包含 `chatgpt/claude/gemini/deepseek/grok/qwen` 六个字段）
+- `ask_chatgpt(query: str, file_paths?: list[str], images_base64?: list[str]) -> str`
+- `ask_claude(query: str, file_paths?: list[str], images_base64?: list[str]) -> str`
+- `ask_gemini(query: str, file_paths?: list[str], images_base64?: list[str]) -> str`
+- `ask_deepseek(query: str, file_paths?: list[str], images_base64?: list[str]) -> str`
+- `ask_grok(query: str, file_paths?: list[str], images_base64?: list[str]) -> str`
+- `ask_qwen(query: str, file_paths?: list[str], images_base64?: list[str]) -> str`
+- `ask_all(query: str, file_paths?: list[str], images_base64?: list[str]) -> str` 返回 JSON 字符串（包含 `chatgpt/claude/gemini/deepseek/grok/qwen` 六个字段）
+
+### 文件输入说明
+
+- `file_paths`：本地绝对路径，适合已经落盘的文件。
+- `images_base64`：适合 IDE 附件或剪贴板截图；服务端会先写入临时文件，再走现有上传链路。
+- 如果 IDE 暂时无法传结构化文件参数，也可以把本地绝对路径直接写进 `query`，服务端会尝试自动提取。
 
 ## 使用指南
 

@@ -4,10 +4,17 @@ import asyncio
 import sys
 import json
 import os
+import re
+import base64
+import binascii
 import subprocess
 import platform
+import tempfile
 import urllib.request
+import uuid
 from dotenv import load_dotenv
+
+from memory import save_message
 
 load_dotenv()
 
@@ -105,6 +112,101 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
+def materialize_base64_images(images_base64: list[str] | None = None) -> list[str]:
+    if not images_base64:
+        return []
+
+    temp_dir = os.path.join(tempfile.gettempdir(), "mcp-web-llm-inline")
+    os.makedirs(temp_dir, exist_ok=True)
+
+    created_paths: list[str] = []
+    for idx, raw in enumerate(images_base64):
+        if not raw:
+            continue
+        payload = raw.strip()
+        ext = ".png"
+
+        data_uri_match = re.match(r"^data:(image/[\w.+-]+);base64,(.+)$", payload, re.IGNORECASE | re.DOTALL)
+        if data_uri_match:
+            mime_type = data_uri_match.group(1).lower()
+            payload = data_uri_match.group(2).strip()
+            if "jpeg" in mime_type or "jpg" in mime_type:
+                ext = ".jpg"
+            elif "webp" in mime_type:
+                ext = ".webp"
+            elif "gif" in mime_type:
+                ext = ".gif"
+        try:
+            binary = base64.b64decode(payload, validate=True)
+        except binascii.Error:
+            continue
+
+        if binary.startswith(b"\xff\xd8\xff"):
+            ext = ".jpg"
+        elif binary.startswith(b"GIF87a") or binary.startswith(b"GIF89a"):
+            ext = ".gif"
+        elif binary.startswith(b"RIFF") and b"WEBP" in binary[:16]:
+            ext = ".webp"
+        elif binary.startswith(b"\x89PNG\r\n\x1a\n"):
+            ext = ".png"
+
+        file_name = f"inline_{uuid.uuid4().hex}_{idx}{ext}"
+        file_path = os.path.join(temp_dir, file_name)
+        with open(file_path, "wb") as f:
+            f.write(binary)
+        created_paths.append(file_path)
+
+    return created_paths
+
+def resolve_query_and_files(
+    query: str,
+    file_paths: list[str] | None = None,
+    images_base64: list[str] | None = None,
+) -> tuple[str, list[str] | None]:
+    resolved_paths: list[str] = []
+    seen: set[str] = set()
+
+    for path in materialize_base64_images(images_base64):
+        abs_path = os.path.abspath(path)
+        if os.path.exists(abs_path) and abs_path not in seen:
+            resolved_paths.append(abs_path)
+            seen.add(abs_path)
+
+    for path in file_paths or []:
+        abs_path = os.path.abspath(path)
+        if os.path.exists(abs_path) and abs_path not in seen:
+            resolved_paths.append(abs_path)
+            seen.add(abs_path)
+
+    raw_matches: list[str] = []
+    patterns = [
+        r"`([A-Za-z]:[\\/][^`\r\n]+)`",
+        r'"([A-Za-z]:[\\/][^"\r\n]+)"',
+        r"'([A-Za-z]:[\\/][^'\r\n]+)'",
+        r"([A-Za-z]:\\[^\s<>|?*]+(?:\.[A-Za-z0-9]+)?)",
+        r"([A-Za-z]:/[^\s<>|?*]+(?:\.[A-Za-z0-9]+)?)",
+    ]
+
+    for pattern in patterns:
+        for match in re.finditer(pattern, query):
+            candidate = match.group(1).strip()
+            if os.path.exists(candidate):
+                abs_path = os.path.abspath(candidate)
+                if abs_path not in seen:
+                    resolved_paths.append(abs_path)
+                    seen.add(abs_path)
+                raw_matches.append(match.group(0))
+
+    cleaned_query = query
+    for raw in sorted(set(raw_matches), key=len, reverse=True):
+        cleaned_query = cleaned_query.replace(raw, " ")
+
+    cleaned_query = re.sub(r"\s+", " ", cleaned_query).strip()
+    if not cleaned_query:
+        cleaned_query = "请读取我刚上传的文件或图片内容，并准确描述你看到的内容。"
+
+    return cleaned_query, (resolved_paths or None)
+
 def doctor_report() -> dict:
     report: dict = {
         "project": "mcp-web-llm",
@@ -176,7 +278,7 @@ async def get_or_create_page(context: BrowserContext, adapter_cls) -> tuple[Page
             raise Exception(f"Failed to load {start_url} due to network timeout. Please check your connection or try again later.") from e
     return page, False
 
-async def run_model_task(model_name: str, query: str, context: BrowserContext):
+async def run_model_task(model_name: str, query: str, context: BrowserContext, file_paths: list[str] = None):
     """Execute query on a specific model"""
     logger.info(f"Starting task for {model_name}")
     adapters = {
@@ -209,10 +311,17 @@ async def run_model_task(model_name: str, query: str, context: BrowserContext):
         except:
             prev_len = 0
             
-        await adapter.send_message(query)
+        # Save user query to DB
+        save_message(model_name, "user", query)
+            
+        await adapter.send_message(query, file_paths)
         logger.info(f"Waiting for answer from {model_name}...")
         answer = await adapter.get_latest_answer(min_len=prev_len)
         logger.info(f"Got answer from {model_name}: {answer[:50]}...")
+        
+        # Save assistant answer to DB
+        save_message(model_name, "assistant", answer)
+        
         return answer
         
     except Exception as e:
@@ -222,69 +331,81 @@ async def run_model_task(model_name: str, query: str, context: BrowserContext):
         return err_msg
 
 @mcp.tool()
-async def ask_chatgpt(query: str) -> str:
+async def ask_chatgpt(query: str, file_paths: list[str] = None, images_base64: list[str] = None) -> str:
     """Ask a question to ChatGPT web interface."""
+    query, file_paths = resolve_query_and_files(query, file_paths, images_base64)
     async with async_playwright() as p:
         context = await get_browser_context(p)
-        return await run_model_task("chatgpt", query, context)
+        return await run_model_task("chatgpt", query, context, file_paths)
 
 @mcp.tool()
-async def ask_claude(query: str) -> str:
+async def ask_claude(query: str, file_paths: list[str] = None, images_base64: list[str] = None) -> str:
     """Ask a question to Claude web interface."""
+    query, file_paths = resolve_query_and_files(query, file_paths, images_base64)
     async with async_playwright() as p:
         context = await get_browser_context(p)
-        return await run_model_task("claude", query, context)
+        return await run_model_task("claude", query, context, file_paths)
 
 @mcp.tool()
-async def ask_gemini(query: str) -> str:
+async def ask_gemini(query: str, file_paths: list[str] = None, images_base64: list[str] = None) -> str:
     """Ask a question to Gemini web interface."""
+    query, file_paths = resolve_query_and_files(query, file_paths, images_base64)
     async with async_playwright() as p:
         context = await get_browser_context(p)
-        return await run_model_task("gemini", query, context)
+        return await run_model_task("gemini", query, context, file_paths)
 
 @mcp.tool()
-async def ask_deepseek(query: str) -> str:
+async def ask_deepseek(query: str, file_paths: list[str] = None, images_base64: list[str] = None) -> str:
     """Ask a question to DeepSeek web interface."""
+    query, file_paths = resolve_query_and_files(query, file_paths, images_base64)
     async with async_playwright() as p:
         context = await get_browser_context(p)
-        return await run_model_task("deepseek", query, context)
+        return await run_model_task("deepseek", query, context, file_paths)
 
 @mcp.tool()
-async def ask_grok(query: str) -> str:
+async def ask_grok(query: str, file_paths: list[str] = None, images_base64: list[str] = None) -> str:
     """Ask a question to Grok web interface."""
+    query, file_paths = resolve_query_and_files(query, file_paths, images_base64)
     async with async_playwright() as p:
         context = await get_browser_context(p)
-        return await run_model_task("grok", query, context)
+        return await run_model_task("grok", query, context, file_paths)
 
 @mcp.tool()
-async def ask_qwen(query: str) -> str:
+async def ask_qwen(query: str, file_paths: list[str] = None, images_base64: list[str] = None) -> str:
     """Ask a question to Qwen web interface."""
+    query, file_paths = resolve_query_and_files(query, file_paths, images_base64)
     async with async_playwright() as p:
         context = await get_browser_context(p)
-        return await run_model_task("qwen", query, context)
+        return await run_model_task("qwen", query, context, file_paths)
 
 @mcp.tool()
-async def ask_all(query: str, ctx: Context) -> str:
+async def ask_all(
+    query: str,
+    ctx: Context,
+    file_paths: list[str] = None,
+    images_base64: list[str] = None,
+) -> str:
     """
     Ask the same question to ALL supported models (ChatGPT, Claude, Gemini, DeepSeek, Grok, Qwen) in parallel.
     Returns a JSON string containing answers from all models.
     """
+    query, file_paths = resolve_query_and_files(query, file_paths, images_base64)
     async with async_playwright() as p:
         context = await get_browser_context(p)
         
         # Helper to run model task with delay
-        async def delayed_start(model, q, c, delay):
+        async def delayed_start(model, q, c, delay, files):
             if delay > 0:
                 await asyncio.sleep(delay)
-            return model, await run_model_task(model, q, c)
+            return model, await run_model_task(model, q, c, files)
 
         tasks = [
-            delayed_start("chatgpt", query, context, 0),
-            delayed_start("claude", query, context, 1),
-            delayed_start("gemini", query, context, 2),
-            delayed_start("deepseek", query, context, 3),
-            delayed_start("grok", query, context, 4),
-            delayed_start("qwen", query, context, 5),
+            delayed_start("chatgpt", query, context, 0, file_paths),
+            delayed_start("claude", query, context, 1, file_paths),
+            delayed_start("gemini", query, context, 2, file_paths),
+            delayed_start("deepseek", query, context, 3, file_paths),
+            delayed_start("grok", query, context, 4, file_paths),
+            delayed_start("qwen", query, context, 5, file_paths),
         ]
         
         # Run in parallel and process as they complete

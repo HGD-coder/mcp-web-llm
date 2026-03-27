@@ -13,6 +13,7 @@ Query multiple top-tier models in parallel directly from your AI IDE (Trae, Curs
 ## Features
 
 - **Multi-Model Aggregation**: The `ask_all` tool queries all supported models simultaneously and returns a consolidated JSON response.
+- **File/Image Upload**: Supports local file paths and inline base64 images, then uploads them to supported model web UIs through Playwright.
 - **Supported Models**: 
   - ChatGPT (chatgpt.com)
   - Claude (claude.ai)
@@ -23,16 +24,23 @@ Query multiple top-tier models in parallel directly from your AI IDE (Trae, Curs
 - **No API Tokens**: Leverages the free web interfaces of these models.
 - **Browser Automation**: Uses Playwright and CDP to connect to your existing Chrome instance, reusing your login state.
 - **Cost Saving**: Perfect for developers who want high-quality model outputs without the API costs.
+- **No Long-Term Memory Feature**: The previous experimental memory/session feature has been rolled back. The project currently only keeps a simple local chat history.
 
 ## Tools
 
-- `ask_chatgpt(query: str) -> str`
-- `ask_claude(query: str) -> str`
-- `ask_gemini(query: str) -> str`
-- `ask_deepseek(query: str) -> str`
-- `ask_grok(query: str) -> str`
-- `ask_qwen(query: str) -> str`
-- `ask_all(query: str) -> str` returns a JSON string with keys: `chatgpt/claude/gemini/deepseek/grok/qwen`
+- `ask_chatgpt(query: str, file_paths?: list[str], images_base64?: list[str]) -> str`
+- `ask_claude(query: str, file_paths?: list[str], images_base64?: list[str]) -> str`
+- `ask_gemini(query: str, file_paths?: list[str], images_base64?: list[str]) -> str`
+- `ask_deepseek(query: str, file_paths?: list[str], images_base64?: list[str]) -> str`
+- `ask_grok(query: str, file_paths?: list[str], images_base64?: list[str]) -> str`
+- `ask_qwen(query: str, file_paths?: list[str], images_base64?: list[str]) -> str`
+- `ask_all(query: str, file_paths?: list[str], images_base64?: list[str]) -> str` returns a JSON string with keys: `chatgpt/claude/gemini/deepseek/grok/qwen`
+
+### File Input Notes
+
+- `file_paths`: absolute local file paths, suitable for files already saved on disk.
+- `images_base64`: inline image payloads from IDE attachments or clipboard screenshots; the server writes them to a temporary local file before upload.
+- If your IDE cannot pass structured file arguments, you can also place an absolute local path directly inside `query`, and the server will try to auto-extract it.
 
 ## Usage
 

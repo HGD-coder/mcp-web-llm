@@ -1,5 +1,6 @@
 from .base import ModelAdapter
 import asyncio
+import os
 import random
 
 class DeepSeekAdapter(ModelAdapter):
@@ -17,7 +18,8 @@ class DeepSeekAdapter(ModelAdapter):
             return False
         return True
 
-    async def send_message(self, query: str):
+    async def send_message(self, query: str, file_paths: list[str] = None):
+        self._last_query = query
         candidates = [
             "textarea#chat-input",
             "textarea[id='chat-input']",
@@ -40,6 +42,19 @@ class DeepSeekAdapter(ModelAdapter):
 
         if not input_selector:
             raise Exception("DeepSeek input box not found. Are you logged in?")
+
+        if file_paths:
+            await self.upload_files(file_paths)
+            try:
+                basename = os.path.basename(file_paths[0])
+                await self.page.wait_for_function(
+                    """(name) => document.body && document.body.innerText.includes(name)""",
+                    arg=basename,
+                    timeout=10000
+                )
+            except:
+                pass
+            await asyncio.sleep(4)
 
         if "contenteditable" in input_selector or "role='textbox'" in input_selector:
             await self.page.focus(input_selector)
@@ -82,7 +97,55 @@ class DeepSeekAdapter(ModelAdapter):
             pass
 
     async def _get_bubbles(self):
-        return await self.page.locator(".ds-markdown, .markdown-body, div[class*='markdown'], div[class*='message']").all_text_contents()
+        for sel in [
+            ".ds-markdown",
+            ".markdown-body",
+            "div[class*='markdown']",
+            "div[class*='message']",
+            "div[class*='assistant']",
+        ]:
+            try:
+                bubbles = await self.page.locator(sel).all_text_contents()
+                bubbles = [b.strip() for b in bubbles if (b or "").strip()]
+                if bubbles:
+                    return bubbles
+            except:
+                continue
+        return []
+
+    async def get_latest_answer(self, min_len: int = 0, timeout: int = 45) -> str:
+        deadline = asyncio.get_event_loop().time() + timeout
+        last = ""
+        while asyncio.get_event_loop().time() < deadline:
+            try:
+                bubbles = await self._get_bubbles()
+                if bubbles:
+                    current = bubbles[-1].strip()
+                    if current and len(current) > max(min_len, 20):
+                        if current == last:
+                            return current
+                        last = current
+                await asyncio.sleep(1.5)
+            except Exception:
+                await asyncio.sleep(1.5)
+        if last:
+            return last
+        try:
+            body_text = await self.page.evaluate("() => document.body ? document.body.innerText : ''")
+            last_query = getattr(self, "_last_query", "").strip()
+            if body_text and last_query and last_query in body_text:
+                tail = body_text.split(last_query)[-1]
+                lines = [line.strip() for line in tail.splitlines() if line.strip()]
+                skip_tokens = ["PNG", "JPG", "JPEG", "KB", "仅识别附件中的文字", "内容由 AI 生成", "深度思考", "智能搜索"]
+                for line in lines:
+                    if any(token in line for token in skip_tokens):
+                        continue
+                    if line.endswith(".png") or line.endswith(".jpg") or line.endswith(".jpeg"):
+                        continue
+                    return line
+        except Exception:
+            pass
+        raise TimeoutError("Timeout waiting for DeepSeek answer")
 
     async def get_latest_answer(self, min_len: int = 0) -> str:
         last_text = ""

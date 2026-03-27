@@ -10,16 +10,20 @@ class ChatGPTAdapter(ModelAdapter):
     def domain_keyword(self) -> str:
         return "chatgpt.com"
 
-    async def send_message(self, query: str):
+    async def send_message(self, query: str, file_paths: list[str] = None):
         input_selector = "#prompt-textarea"
         try:
             await self.page.wait_for_selector(input_selector, timeout=10000)
         except:
             raise Exception("ChatGPT input box not found. Are you logged in?")
 
+        if file_paths:
+            await self.upload_files(file_paths)
+            # upload_files already waits 5s internally, no need to double-wait
+
         await self.human_type(input_selector, query)
         await asyncio.sleep(1)
-        
+
         send_button = self.page.locator('[data-testid="send-button"]')
         if await send_button.count() > 0:
             await send_button.click()
