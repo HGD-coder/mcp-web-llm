@@ -9,8 +9,8 @@ def main() -> None:
     root = Path(__file__).resolve().parent
     in_path = root / "demo.mp4"
     out_path = root / "demo.gif"
-    duration_s = "8"
-    fps = "12"
+    duration_s = "20"
+    fps = "10"
     width = "900"
     scale = f"scale={width}:-1:flags=lanczos"
 
