@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
   <img src="logo.png" alt="MCP Web LLM Aggregator Logo" width="200" />
 </div>
 
@@ -25,6 +25,10 @@
 - **浏览器自动化**：使用 Playwright 和 CDP 连接到您现有的 Chrome 实例，复用您的登录状态。
 - **极致省钱**：适合希望获得高质量模型输出但不想支付 API 费用的开发者。
 - **没有长期记忆功能**：之前实验性的 memory/session 功能已经回滚，当前只保留简单的本地聊天历史记录。
+
+## 演示
+
+[演示视频 (MP4)](demo/demo.mp4)
 
 ## 工具列表
 

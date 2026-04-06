@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
   <img src="logo.png" alt="MCP Web LLM Aggregator Logo" width="200" />
 </div>
 
@@ -25,6 +25,10 @@ Query multiple top-tier models in parallel directly from your AI IDE (Trae, Curs
 - **Browser Automation**: Uses Playwright and CDP to connect to your existing Chrome instance, reusing your login state.
 - **Cost Saving**: Perfect for developers who want high-quality model outputs without the API costs.
 - **No Long-Term Memory Feature**: The previous experimental memory/session feature has been rolled back. The project currently only keeps a simple local chat history.
+
+## Demo
+
+[Demo video (MP4)](demo/demo.mp4)
 
 ## Tools
 
