@@ -28,7 +28,7 @@
 
 ## 演示
 
-<img src="demo/demo.gif" width="100%" />
+<img src="demo/demo.gif?v=2" width="100%" />
 
 [演示视频 (MP4)](demo/demo.mp4)
 
