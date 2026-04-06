@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
   <img src="logo.png" alt="MCP Web LLM Aggregator Logo" width="200" />
 </div>
 
@@ -27,6 +27,8 @@
 - **没有长期记忆功能**：之前实验性的 memory/session 功能已经回滚，当前只保留简单的本地聊天历史记录。
 
 ## 演示
+
+<img src="demo/demo.gif" width="100%" />
 
 [演示视频 (MP4)](demo/demo.mp4)
 

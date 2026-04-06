@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
   <img src="logo.png" alt="MCP Web LLM Aggregator Logo" width="200" />
 </div>
 
@@ -27,6 +27,8 @@ Query multiple top-tier models in parallel directly from your AI IDE (Trae, Curs
 - **No Long-Term Memory Feature**: The previous experimental memory/session feature has been rolled back. The project currently only keeps a simple local chat history.
 
 ## Demo
+
+<img src="demo/demo.gif" width="100%" />
 
 [Demo video (MP4)](demo/demo.mp4)
 
